@@ -67,7 +67,7 @@ func main() {
 	populationSize := 200
 	population := generateRandomSchedules(shifts, employees, populationSize)
 	maxGenerations := 1000
-	mutationRate := float32(0.1)
+	// mutationRate := float32(0.1)
 
 	for gen := 0; gen < maxGenerations; gen++ {
 		for i := range population {
@@ -80,7 +80,7 @@ func main() {
 			parentA := parents[rand.Intn(len(parents))]
 			parentB := parents[rand.Intn(len(parents))]
 			child := crossover(parentA, parentB, shifts)
-			child = mutate(child, shifts, employees, mutationRate)
+			// child = mutate(child, shifts, employees, mutationRate)
 			offspring = append(offspring, child)
 		}
 		population = offspring
@@ -89,7 +89,19 @@ func main() {
 
 	// Returning Start
 	bestSchedule := getBestSchedule(population)
+	count := make(map[int]int)
+	for j := range employees {
+		count[j] = 0
+	}
+	for _, shift := range bestSchedule.Assignments {
+		for _, value := range shift {
+			if _, exists := count[value]; exists {
+				count[value]++
+			}
+		}
+	}
 	printSchedule(bestSchedule)
+	fmt.Printf("%v", &count)
 	// Returning End
 
 	fmt.Println("")
@@ -111,7 +123,10 @@ func generateRandomSchedules(shifts []models.Shift, employees []models.Employee,
 		// Assign non-locked shifts
 		for _, shift := range shifts {
 			// if _, isLocked := schedule.Locked[shift.ID]; !isLocked {}
-			numAssigned := rand.Intn(shift.MaxStaff + 1)
+			numAssigned := 0
+			for numAssigned < shift.MinStaff {
+				numAssigned = rand.Intn(shift.MaxStaff + 1)
+			}
 			shuffledEmps := shuffleEmployees(employees)
 			employeeIDs := make([]int, 0)
 			for _, emp := range shuffledEmps[:numAssigned] {
