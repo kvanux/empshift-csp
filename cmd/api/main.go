@@ -12,7 +12,7 @@ func main() {
 	fmt.Println("")
 	fmt.Println("Program start:")
 	fmt.Println("")
-	// Input Start
+
 	var employeeNo int
 	var minShift int
 	var maxShift int
@@ -61,33 +61,30 @@ func main() {
 			shifts = append(shifts, newShift)
 		}
 	}
-	// Input End
 
-	// Processing Start
 	populationSize := 200
 	population := generateRandomSchedules(shifts, employees, populationSize)
 	maxGenerations := 1000
-	// mutationRate := float32(0.1)
 
 	for gen := 0; gen < maxGenerations; gen++ {
 		for i := range population {
 			population[i].Fitness = calculateFitness(population[i], shifts, employees)
 		}
-		parents := selectTopSchedules(population, 0.2)
+		parents := selectTopSchedules(population, 0.1)
 
 		var offspring []models.Schedule
 		for len(offspring) < populationSize {
 			parentA := parents[rand.Intn(len(parents))]
 			parentB := parents[rand.Intn(len(parents))]
 			child := crossover(parentA, parentB, shifts)
-			// child = mutate(child, shifts, employees, mutationRate)
 			offspring = append(offspring, child)
 		}
 		population = offspring
 	}
-	// Processing End
 
-	// Returning Start
+	for i := range population {
+		population[i].Fitness = calculateFitness(population[i], shifts, employees)
+	}
 	bestSchedule := getBestSchedule(population)
 	count := make(map[int]int)
 	for j := range employees {
@@ -102,7 +99,6 @@ func main() {
 	}
 	printSchedule(bestSchedule)
 	fmt.Printf("%v", &count)
-	// Returning End
 
 	fmt.Println("")
 	fmt.Println("Program exited.")
@@ -114,13 +110,11 @@ func generateRandomSchedules(shifts []models.Shift, employees []models.Employee,
 	for i := 0; i < populationSize; i++ {
 		schedule := models.Schedule{
 			Assignments: make(map[string][]int),
-			// Locked:      make(map[string][]int), // Assume locked assignments pre-loaded
+			Locked:      make(map[string][]int),
 		}
-		// Copy locked assignments: no way to get input currently, will be done in the future
 		// for shiftID, emps := range lockedAssignments {
 		//     schedule.Assignments[shiftID] = emps
 		// }
-		// Assign non-locked shifts
 		for _, shift := range shifts {
 			// if _, isLocked := schedule.Locked[shift.ID]; !isLocked {}
 			numAssigned := 0
@@ -159,28 +153,40 @@ func getEmployeeByID(id int, employees []models.Employee) models.Employee {
 
 func calculateFitness(s models.Schedule, shifts []models.Shift, employees []models.Employee) float64 {
 	score := 0.0
+	empShiftCount := make(map[int]int)
+	empDayShifts := make(map[int]map[string]int)
+
 	for _, shift := range shifts {
-		assigned := len(s.Assignments[shift.ID])
-		if assigned < shift.MinStaff {
-			score -= float64(shift.MinStaff-assigned) * 10
+		assigned := s.Assignments[shift.ID]
+		unique := make(map[int]struct{})
+
+		for _, empID := range assigned {
+			if _, exists := unique[empID]; exists {
+				score -= 20
+			}
+			unique[empID] = struct{}{}
+
+			empShiftCount[empID]++
+
+			if empDayShifts[empID] == nil {
+				empDayShifts[empID] = make(map[string]int)
+			}
+			empDayShifts[empID][shift.Day]++
 		}
-		if assigned > shift.MaxStaff {
-			score -= float64(assigned-shift.MaxStaff) * 5
+
+		if len(unique) < shift.MinStaff {
+			score -= float64(shift.MinStaff-len(unique)) * 10
+		}
+		if len(unique) > shift.MaxStaff {
+			score -= float64(len(unique)-shift.MaxStaff) * 5
 		}
 	}
 
-	empShiftCount := make(map[int]int)
-	for shiftID, emps := range s.Assignments {
-		for _, empID := range emps {
-			empShiftCount[empID]++
-
-			emp := getEmployeeByID(empID, employees)
-			if _, unavailable := emp.Unavailable[shiftID]; unavailable {
-				score -= 15
-			}
-
-			if _, preferred := emp.Preferences[shiftID]; preferred {
-				score += 3
+	for _, days := range empDayShifts {
+		for _, count := range days {
+			if count > 1 {
+				penalty := (count - 1) * 10
+				score -= float64(penalty)
 			}
 		}
 	}
@@ -214,7 +220,6 @@ func crossover(parentA, parentB models.Schedule, shifts []models.Shift) models.S
 		if _, isLocked := child.Locked[shift.ID]; isLocked {
 			child.Assignments[shift.ID] = parentA.Locked[shift.ID]
 		} else {
-
 			if rand.Float32() < 0.5 {
 				child.Assignments[shift.ID] = parentA.Assignments[shift.ID]
 			} else {
@@ -223,33 +228,6 @@ func crossover(parentA, parentB models.Schedule, shifts []models.Shift) models.S
 		}
 	}
 	return child
-}
-
-func mutate(schedule models.Schedule, shifts []models.Shift, employees []models.Employee, mutationRate float32) models.Schedule {
-	mutated := models.Schedule{
-		Assignments: make(map[string][]int),
-		Locked:      schedule.Locked,
-	}
-	for shiftID, emps := range schedule.Assignments {
-		if _, isLocked := schedule.Locked[shiftID]; isLocked {
-			mutated.Assignments[shiftID] = emps
-			continue
-		}
-		if rand.Float32() < mutationRate {
-
-			newEmps := emps
-			if len(emps) > 0 && rand.Float32() < 0.5 {
-				newEmps = emps[:len(emps)-1]
-			} else {
-				newEmp := employees[rand.Intn(len(employees))].ID
-				newEmps = append(newEmps, newEmp)
-			}
-			mutated.Assignments[shiftID] = newEmps
-		} else {
-			mutated.Assignments[shiftID] = emps
-		}
-	}
-	return mutated
 }
 
 func getBestSchedule(population []models.Schedule) models.Schedule {
