@@ -1,0 +1,26 @@
+name: CI/CD for Go Backend
+
+on:
+  push:
+    branches: [ main ]  # Trigger on push to main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker Image
+        run: docker build -t my-go-backend .
+
+      - name: Deploy to Render
+        run: |
+          curl -X POST "$RENDER_DEPLOY_HOOK"
+
+    env:
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}

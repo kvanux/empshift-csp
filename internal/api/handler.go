@@ -4,7 +4,6 @@ import (
 	schedule "empshift-csp/internal/core"
 	"empshift-csp/internal/models"
 	"encoding/json"
-	"fmt"
 	"net/http"
 )
 
@@ -24,7 +23,6 @@ func HandleScheduleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req models.SchedulePackageRequest
-	fmt.Printf("NUMBER OF EMPLOYEES: %d\n", len(req.Staffs))
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		errorResponse := map[string]string{
 			"message": "Invalid request body",
